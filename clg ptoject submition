@@ -1,0 +1,963 @@
+ABSTRACT
+
+The Online Examination System is a comprehensive relational database management system designed to automate and streamline the complete examination process in an academic environment. The system efficiently manages student profiles, instructor records, course details, exam schedules, question papers, attempts, results, and analytical reports while ensuring data integrity, consistency, and minimal redundancy.
+
+This project demonstrates the practical application of advanced DBMS concepts including normalization (up to 3NF), entity-relationship modeling, structured query language (SQL), triggers, views, indexing, and transaction control using COMMIT and ROLLBACK. The system is built on MySQL and follows a clean relational schema with well-defined primary and foreign key relationships.
+
+Key outcomes of this project include: a normalized database design free from redundancy and update anomalies; efficient SQL queries for real-time reporting and academic analysis; automatic evaluation of answers and grading using triggers; and secure, consistent operation under defined business rules. The project also identifies future enhancement opportunities such as web-based student interfaces, online exam authorization, and result dashboard integration.
+
+INTRODUCTION
+
+1.1 Background
+
+Educational institutions still use traditional methods for conducting examinations, such as paper-based question papers, handwritten evaluation, and manual mark entry in spreadsheets. These methods are slow, error-prone, and difficult to scale as the number of students, courses, and exams increases. Many important questions remain difficult to answer quickly, such as:
+- How many students failed in Operating Systems?
+- Which exam had the highest average score?
+- Who is the topper in a particular exam?
+- Which students have not attempted an exam yet?
+
+A database management system provides a structured and efficient method for managing examination data. It ensures data consistency, improves query performance, and simplifies report generation.
+
+1.2 Problem Statement: limitations of manual examination systems
+
+• Data Redundancy: Student, course, exam, and result data are often recorded multiple times in different files.
+• Lack of Data Integrity: Duplicate marks, invalid entries, and missing records are common.
+• Inefficiency: Searching and updating large examination records is slow and error-prone.
+• Poor Traceability: It is difficult to track which student attempted which exam and what marks they obtained.
+• Inconsistent Reporting: Averages, pass/fail counts, and topper lists are difficult to compute accurately.
+• Security Issues: Paper records do not provide controlled access to academic data.
+
+1.3 Scope of the Project
+
+This project covers the design and implementation of a backend database system for an online examination application. The scope includes:
+• Student registration and management
+• Instructor and course management
+• Exam scheduling and paper creation
+• Student exam attempts and answer records
+• Automatic evaluation and grading
+• Result publication
+• Advanced SQL operations such as views, triggers, joins, subqueries, and indexing
+• Transaction control for data consistency
+
+1.4 Objectives
+
+1. Design a fully normalized relational database schema.
+2. Implement all necessary tables with primary keys, foreign keys, UNIQUE constraints, CHECK conditions, and defaults.
+3. Create SQL queries for academic reporting and analysis.
+4. Implement automated evaluation and grading using triggers.
+5. Ensure integrity and consistency using transactions (COMMIT / ROLLBACK).
+6. Provide views for mark sheets, analytics, and exam schedules.
+
+SYSTEM DESIGN
+
+2.1 System Architecture
+
+The Online Examination System follows a three-tier logical architecture:
+
+Layer Description:
+• Presentation Layer: Command-line interface or future web/mobile front end for students and faculty.
+• Application Layer: Business logic for enrollment, exam scheduling, attempt validation, and grade calculation.
+• Database Layer: MySQL relational database storing all structured data with constraints and triggers.
+
+2.2 Entity-Relationship (ER) Diagram
+
+The ER diagram represents the real-world entities and their relationships in the system. It forms the conceptual foundation before creating the relational schema.
+
+2.3 Entities and Attributes
+
+| Entity | Primary Key | Key Attributes |
+|---|---|---|
+| STUDENT | Student_ID | Student_Name, Email, Phone, Department, Year_of_Study |
+| INSTRUCTOR | Instructor_ID | Instructor_Name, Email, Department, Specialization |
+| COURSE | Course_ID | Course_Name, Credits, Department, Instructor_ID |
+| EXAM | Exam_ID | Exam_Title, Course_ID, Exam_Date, Duration_Minutes, Total_Marks, Exam_Type |
+| QUESTION | (Exam_ID, Question_No) | Question_Text, Question_Type, Marks |
+| QUESTION_OPTION | (Exam_ID, Question_No, Option_Label) | Option_Text, Is_Correct |
+| ENROLLMENT | (Student_ID, Course_ID) | Enroll_Date, Status |
+| EXAM_ATTEMPT | Attempt_ID | Student_ID, Exam_ID, Attempt_Date, Status, Marks_Obtained |
+| ANSWER | (Attempt_ID, Exam_ID, Question_No) | Selected_Label, Is_Correct, Marks_Scored |
+| RESULT | Result_ID | Attempt_ID, Percentage, Grade, Status, Published_Date |
+
+2.4 Relationships
+
+| Relationship | Entity 1 | Entity 2 | Cardinality |
+|---|---|---|---|
+| ENROLLS | STUDENT | COURSE | M : N |
+| TEACHES | INSTRUCTOR | COURSE | 1 : M |
+| OFFERS | COURSE | EXAM | 1 : M |
+| CONTAINS | EXAM | QUESTION | 1 : M |
+| HAS | QUESTION | QUESTION_OPTION | 1 : M |
+| ATTEMPTS | STUDENT | EXAM | M : N via EXAM_ATTEMPT |
+| ANSWERS | EXAM_ATTEMPT | QUESTION | M : N |
+| PRODUCES | EXAM_ATTEMPT | RESULT | 1 : 1 |
+
+2.5 ER Diagram (Mermaid)
+
+```mermaid
+erDiagram
+    INSTRUCTOR ||--|{ COURSE : TEACHES
+    COURSE ||--|{ EXAM : OFFERS
+    EXAM ||--|{ QUESTION : CONTAINS
+    QUESTION ||--|{ QUESTION_OPTION : HAS
+    STUDENT }o--o{ COURSE : ENROLLS
+    STUDENT ||--|{ EXAM_ATTEMPT : ATTEMPTS
+    EXAM ||--|{ EXAM_ATTEMPT : ATTEMPTS
+    EXAM_ATTEMPT }o--o{ QUESTION : ANSWERS
+    EXAM_ATTEMPT ||--|| RESULT : PRODUCES
+
+    STUDENT {
+        int Student_ID PK
+        string Student_Name
+        string Email
+        string Phone
+        string Department
+        int Year_Of_Study
+    }
+
+    INSTRUCTOR {
+        int Instructor_ID PK
+        string Instructor_Name
+        string Email
+        string Department
+        string Specialization
+    }
+
+    COURSE {
+        int Course_ID PK
+        string Course_Name
+        int Credits
+        string Department
+        int Instructor_ID FK
+    }
+
+    EXAM {
+        int Exam_ID PK
+        string Exam_Title
+        int Course_ID FK
+        date Exam_Date
+        int Duration_Minutes
+        int Total_Marks
+        string Exam_Type
+    }
+
+    QUESTION {
+        int Exam_ID PK
+        int Question_No PK
+        string Question_Text
+        string Question_Type
+        int Marks
+    }
+
+    QUESTION_OPTION {
+        int Exam_ID PK
+        int Question_No PK
+        char Option_Label PK
+        string Option_Text
+        char Is_Correct
+    }
+
+    EXAM_ATTEMPT {
+        int Attempt_ID PK
+        int Student_ID FK
+        int Exam_ID FK
+        date Attempt_Date
+        string Status
+        float Marks_Obtained
+    }
+
+    RESULT {
+        int Result_ID PK
+        int Attempt_ID FK
+        float Percentage
+        char Grade
+        string Status
+        date Published_Date
+    }
+```
+
+NORMALIZATION
+
+3.1 First Normal Form (1NF)
+
+A table is in 1NF if:
+- each column contains atomic values
+- no repeating groups exist
+- every row is unique
+
+For this system:
+- Each student has separate columns such as Student_Name, Email, Phone, Department, and Year_Of_Study.
+- Question options are stored in separate rows in QUESTION_OPTION instead of repeating in one row.
+- No multi-valued attributes are used.
+
+3.2 Second Normal Form (2NF)
+
+A table is in 2NF if it is in 1NF and every non-key attribute depends on the entire primary key.
+
+Examples:
+- In the QUESTION table, attributes like Question_Text and Marks depend on the composite key (Exam_ID, Question_No).
+- In the ENROLLMENT table, Status and Enroll_Date depend on the full composite key (Student_ID, Course_ID).
+- This avoids partial dependency.
+
+3.3 Third Normal Form (3NF)
+
+A table is in 3NF if it is in 2NF and no non-key attribute depends on another non-key attribute.
+
+Examples:
+- Student Department is stored directly in the STUDENT table and not in a separate table unless needed.
+- Course details are stored in COURSE instead of duplicate values in EXAM.
+- Result Grade and Status are computed using percentage and not stored redundantly.
+
+3.4 Normalization Summary
+
+| Normal Form | Condition | Status |
+|---|---|---|
+| 1NF | Atomic values, no repeating groups | Achieved |
+| 2NF | No partial dependency | Achieved |
+| 3NF | No transitive dependency | Achieved |
+
+DATABASE DESIGN & SCHEMA
+
+4.1 Relational Schema Diagram
+
+STUDENT (Student_ID, Student_Name, Email, Phone, Department, Year_Of_Study)
+INSTRUCTOR (Instructor_ID, Instructor_Name, Email, Department, Specialization)
+COURSE (Course_ID, Course_Name, Credits, Department, Instructor_ID)
+ENROLLMENT (Student_ID, Course_ID, Enroll_Date, Status)
+EXAM (Exam_ID, Exam_Title, Course_ID, Exam_Date, Duration_Minutes, Total_Marks, Exam_Type)
+QUESTION (Exam_ID, Question_No, Question_Text, Question_Type, Marks)
+QUESTION_OPTION (Exam_ID, Question_No, Option_Label, Option_Text, Is_Correct)
+EXAM_ATTEMPT (Attempt_ID, Student_ID, Exam_ID, Attempt_Date, Status, Marks_Obtained)
+ANSWER (Attempt_ID, Exam_ID, Question_No, Selected_Label, Is_Correct, Marks_Scored)
+RESULT (Result_ID, Attempt_ID, Percentage, Grade, Status, Published_Date)
+
+4.2 Detailed Table Schemas
+
+4.2.1 STUDENT Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Student_ID | INT | PRIMARY KEY | Unique student id |
+| Student_Name | VARCHAR(50) | NOT NULL | Student full name |
+| Email | VARCHAR(100) | UNIQUE | Email address |
+| Phone | VARCHAR(15) | UNIQUE | Contact number |
+| Department | VARCHAR(30) | DEFAULT 'CSE' | Department |
+| Year_Of_Study | INT | CHECK BETWEEN 1 AND 4 | Academic year |
+
+4.2.2 INSTRUCTOR Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Instructor_ID | INT | PRIMARY KEY | Unique instructor id |
+| Instructor_Name | VARCHAR(50) | NOT NULL | Instructor name |
+| Email | VARCHAR(100) | UNIQUE | Official email |
+| Department | VARCHAR(30) | NOT NULL | Department |
+| Specialization | VARCHAR(50) | NOT NULL | Expertise area |
+
+4.2.3 COURSE Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Course_ID | INT | PRIMARY KEY | Unique course id |
+| Course_Name | VARCHAR(100) | UNIQUE | Course name |
+| Credits | INT | CHECK BETWEEN 1 AND 6 | Course credits |
+| Department | VARCHAR(30) | NOT NULL | Department |
+| Instructor_ID | INT | FOREIGN KEY | Course instructor |
+
+4.2.4 EXAM Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Exam_ID | INT | PRIMARY KEY | Unique exam id |
+| Exam_Title | VARCHAR(100) | NOT NULL | Exam title |
+| Course_ID | INT | FOREIGN KEY | Course reference |
+| Exam_Date | DATE | NOT NULL | Exam date |
+| Duration_Minutes | INT | CHECK BETWEEN 10 AND 240 | Duration |
+| Total_Marks | INT | CHECK BETWEEN 1 AND 200 | Total marks |
+| Exam_Type | VARCHAR(20) | CHECK IN (...) | MIDTERM/QUIZ/FINAL |
+
+4.2.5 QUESTION Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Exam_ID | INT | PRIMARY KEY + FK | Parent exam |
+| Question_No | SMALLINT | PRIMARY KEY | Question number |
+| Question_Text | VARCHAR(200) | NOT NULL | Question statement |
+| Question_Type | VARCHAR(15) | DEFAULT 'MCQ' | Type of question |
+| Marks | SMALLINT | DEFAULT 1 | Marks for question |
+
+4.2.6 QUESTION_OPTION Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Exam_ID | INT | PK + FK | Parent exam |
+| Question_No | SMALLINT | PK + FK | Parent question |
+| Option_Label | CHAR(1) | PK | A/B/C/D |
+| Option_Text | VARCHAR(200) | NOT NULL | Option statement |
+| Is_Correct | CHAR(3) | CHECK IN ('YES','NO') | Correct answer flag |
+
+4.2.7 EXAM_ATTEMPT Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Attempt_ID | INT | PRIMARY KEY | Unique attempt id |
+| Student_ID | INT | FOREIGN KEY | Student |
+| Exam_ID | INT | FOREIGN KEY | Exam |
+| Attempt_Date | DATE | NOT NULL | Attempt date |
+| Status | VARCHAR(20) | CHECK IN (...) | IN PROGRESS/COMPLETED |
+| Marks_Obtained | DECIMAL(5,2) | CHECK >=0 | Auto-marked score |
+
+4.2.8 ANSWER Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Attempt_ID | INT | PK + FK | Attempt id |
+| Exam_ID | INT | PK + FK | Exam |
+| Question_No | SMALLINT | PK + FK | Question no |
+| Selected_Label | CHAR(1) | CHECK IN ('A','B','C','D') | Student answer |
+| Is_Correct | CHAR(3) | CHECK IN ('YES','NO') | Correctness |
+| Marks_Scored | DECIMAL(5,2) | CHECK >= 0 | Marks earned |
+
+4.2.9 RESULT Table
+
+| Column | Data Type | Constraint | Description |
+|---|---|---|---|
+| Result_ID | INT | PRIMARY KEY | Result id |
+| Attempt_ID | INT | UNIQUE + FK | One result per attempt |
+| Percentage | DECIMAL(5,2) | CHECK BETWEEN 0 AND 100 | Percentage |
+| Grade | CHAR(1) | CHECK IN ('A','B','C','D','F') | Grade |
+| Status | VARCHAR(10) | CHECK IN ('PASS','FAIL') | Status |
+| Published_Date | DATE | NOT NULL | Publish date |
+
+SQL IMPLEMENTATION
+
+5.1 Database Creation
+
+```sql
+CREATE DATABASE Online_Examination_System;
+USE Online_Examination_System;
+```
+
+5.2 Table Creation Statements
+
+5.2.1 Student Table
+
+```sql
+CREATE TABLE STUDENT (
+    Student_ID INT PRIMARY KEY,
+    Student_Name VARCHAR(50) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Phone VARCHAR(15) UNIQUE NOT NULL,
+    Department VARCHAR(30) NOT NULL DEFAULT 'CSE',
+    Year_Of_Study INT NOT NULL DEFAULT 2,
+    CHECK (Year_Of_Study BETWEEN 1 AND 4)
+);
+```
+
+5.2.2 Instructor Table
+
+```sql
+CREATE TABLE INSTRUCTOR (
+    Instructor_ID INT PRIMARY KEY,
+    Instructor_Name VARCHAR(50) NOT NULL,
+    Email VARCHAR(100) UNIQUE NOT NULL,
+    Department VARCHAR(30) NOT NULL,
+    Specialization VARCHAR(50) NOT NULL
+);
+```
+
+5.2.3 Course Table
+
+```sql
+CREATE TABLE COURSE (
+    Course_ID INT PRIMARY KEY,
+    Course_Name VARCHAR(100) UNIQUE NOT NULL,
+    Credits INT NOT NULL DEFAULT 3,
+    Department VARCHAR(30) NOT NULL,
+    Instructor_ID INT,
+    CHECK (Credits BETWEEN 1 AND 6),
+    FOREIGN KEY (Instructor_ID) REFERENCES INSTRUCTOR(Instructor_ID)
+);
+```
+
+5.2.4 Enrollment Table
+
+```sql
+CREATE TABLE ENROLLMENT (
+    Student_ID INT NOT NULL,
+    Course_ID INT NOT NULL,
+    Enroll_Date DATE NOT NULL DEFAULT CURRENT_DATE,
+    Status VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    PRIMARY KEY (Student_ID, Course_ID),
+    CHECK (Status IN ('ACTIVE','INACTIVE','PENDING')),
+    CHECK (Enroll_Date >= '2026-01-01'),
+    FOREIGN KEY (Student_ID) REFERENCES STUDENT(Student_ID) ON DELETE CASCADE,
+    FOREIGN KEY (Course_ID) REFERENCES COURSE(Course_ID) ON DELETE CASCADE
+);
+```
+
+5.2.5 Exam Table
+
+```sql
+CREATE TABLE EXAM (
+    Exam_ID INT PRIMARY KEY,
+    Exam_Title VARCHAR(100) NOT NULL,
+    Course_ID INT NOT NULL,
+    Exam_Date DATE NOT NULL,
+    Duration_Minutes INT NOT NULL DEFAULT 60,
+    Total_Marks INT NOT NULL DEFAULT 100,
+    Exam_Type VARCHAR(20) NOT NULL,
+    CHECK (Duration_Minutes BETWEEN 10 AND 240),
+    CHECK (Total_Marks BETWEEN 1 AND 200),
+    CHECK (Exam_Type IN ('QUIZ','MIDTERM','FINAL')),
+    CHECK (Exam_Date >= '2026-01-01'),
+    FOREIGN KEY (Course_ID) REFERENCES COURSE(Course_ID)
+);
+```
+
+5.2.6 Question Table
+
+```sql
+CREATE TABLE QUESTION (
+    Exam_ID INT NOT NULL,
+    Question_No SMALLINT NOT NULL,
+    Question_Text VARCHAR(200) NOT NULL,
+    Question_Type VARCHAR(15) NOT NULL DEFAULT 'MCQ',
+    Marks SMALLINT NOT NULL DEFAULT 1,
+    PRIMARY KEY (Exam_ID, Question_No),
+    CHECK (Question_No > 0),
+    CHECK (Marks > 0),
+    CHECK (Question_Type IN ('MCQ','TRUE/FALSE','FILL IN THE BLANK')),
+    FOREIGN KEY (Exam_ID) REFERENCES EXAM(Exam_ID) ON DELETE CASCADE
+);
+```
+
+5.2.7 Question_Option Table
+
+```sql
+CREATE TABLE QUESTION_OPTION (
+    Exam_ID INT NOT NULL,
+    Question_No SMALLINT NOT NULL,
+    Option_Label CHAR(1) NOT NULL,
+    Option_Text VARCHAR(200) NOT NULL,
+    Is_Correct CHAR(3) NOT NULL DEFAULT 'NO',
+    PRIMARY KEY (Exam_ID, Question_No, Option_Label),
+    CHECK (Option_Label IN ('A','B','C','D')),
+    CHECK (Is_Correct IN ('YES','NO')),
+    FOREIGN KEY (Exam_ID, Question_No) REFERENCES QUESTION(Exam_ID, Question_No)
+    ON DELETE CASCADE
+);
+```
+
+5.2.8 Exam_Attempt Table
+
+```sql
+CREATE TABLE EXAM_ATTEMPT (
+    Attempt_ID INT PRIMARY KEY,
+    Student_ID INT NOT NULL,
+    Exam_ID INT NOT NULL,
+    Attempt_Date DATE NOT NULL,
+    Status VARCHAR(20) NOT NULL DEFAULT 'IN PROGRESS',
+    Marks_Obtained DECIMAL(5,2) NOT NULL DEFAULT 0,
+    UNIQUE (Student_ID, Exam_ID),
+    CHECK (Status IN ('IN PROGRESS','COMPLETED')),
+    CHECK (Marks_Obtained >= 0),
+    FOREIGN KEY (Student_ID) REFERENCES STUDENT(Student_ID),
+    FOREIGN KEY (Exam_ID) REFERENCES EXAM(Exam_ID)
+);
+```
+
+5.2.9 Answer Table
+
+```sql
+CREATE TABLE ANSWER (
+    Attempt_ID INT NOT NULL,
+    Exam_ID INT NOT NULL,
+    Question_No SMALLINT NOT NULL,
+    Selected_Label CHAR(1) NOT NULL,
+    Is_Correct CHAR(3) NOT NULL,
+    Marks_Scored DECIMAL(5,2) NOT NULL DEFAULT 0,
+    PRIMARY KEY (Attempt_ID, Exam_ID, Question_No),
+    CHECK (Selected_Label IN ('A','B','C','D')),
+    CHECK (Is_Correct IN ('YES','NO')),
+    CHECK (Marks_Scored >= 0),
+    FOREIGN KEY (Attempt_ID) REFERENCES EXAM_ATTEMPT(Attempt_ID),
+    FOREIGN KEY (Exam_ID, Question_No) REFERENCES QUESTION(Exam_ID, Question_No)
+);
+```
+
+5.2.10 Result Table
+
+```sql
+CREATE TABLE RESULT (
+    Result_ID INT PRIMARY KEY,
+    Attempt_ID INT UNIQUE NOT NULL,
+    Percentage DECIMAL(5,2) NOT NULL,
+    Grade CHAR(1) NOT NULL DEFAULT 'F',
+    Status VARCHAR(10) NOT NULL DEFAULT 'FAIL',
+    Published_Date DATE NOT NULL,
+    CHECK (Percentage BETWEEN 0 AND 100),
+    CHECK (Grade IN ('A','B','C','D','F')),
+    CHECK (Status IN ('PASS','FAIL')),
+    FOREIGN KEY (Attempt_ID) REFERENCES EXAM_ATTEMPT(Attempt_ID)
+);
+```
+
+5.3 Sample Data Insertion
+
+Sample data is inserted in `02_data.sql`. Records include:
+- 23 students
+- 6 instructors
+- 10 courses
+- 20 exams
+- 24 exam attempts
+- 96 answers
+- 24 results
+- Total 360 rows
+
+ADVANCED SQL QUERIES
+
+The project includes 16 SQL queries covering all major DBMS features.
+
+Q1 — Simple SELECT
+
+```sql
+SELECT Student_ID AS ROLL_NO, Student_Name AS STUDENT_NAME, Email AS EMAIL_ID
+FROM STUDENT;
+```
+
+Q2 — WHERE with AND
+
+```sql
+SELECT Student_ID, Student_Name, Department
+FROM STUDENT
+WHERE Department = 'CSE' AND Student_ID >= 1019
+ORDER BY Student_ID;
+```
+
+Q3 — WHERE + ORDER BY DESC
+
+```sql
+SELECT Exam_Title, Exam_Date, Exam_Type
+FROM EXAM
+WHERE Exam_Type = 'FINAL'
+ORDER BY Exam_Date DESC;
+```
+
+Q4 — Aggregate Functions
+
+```sql
+SELECT COUNT(*) AS TOTAL_ATTEMPTS,
+       ROUND(AVG(Marks_Obtained),2) AS AVG_MARKS,
+       MAX(Marks_Obtained) AS HIGHEST,
+       MIN(Marks_Obtained) AS LOWEST,
+       SUM(Marks_Obtained) AS TOTAL_MARKS_SCORED
+FROM EXAM_ATTEMPT;
+```
+
+Q5 — GROUP BY
+
+```sql
+SELECT Exam_ID, COUNT(*) AS STUDENTS_APPEARED,
+       ROUND(AVG(Marks_Obtained),2) AS AVG_MARKS,
+       MAX(Marks_Obtained) AS MAX_MARKS,
+       MIN(Marks_Obtained) AS MIN_MARKS
+FROM EXAM_ATTEMPT
+GROUP BY Exam_ID
+ORDER BY Exam_ID;
+```
+
+Q6 — GROUP BY + HAVING
+
+```sql
+SELECT Exam_ID, COUNT(*) AS STUDENTS_APPEARED,
+       ROUND(AVG(Marks_Obtained),2) AS AVG_MARKS
+FROM EXAM_ATTEMPT
+GROUP BY Exam_ID
+HAVING AVG(Marks_Obtained) > 60
+ORDER BY AVG_MARKS DESC;
+```
+
+Q7 — HAVING with JOIN
+
+```sql
+SELECT c.Course_Name, COUNT(*) AS ENROLLED_STUDENTS
+FROM COURSE c
+JOIN ENROLLMENT e ON e.Course_ID = c.Course_ID
+GROUP BY c.Course_Name
+HAVING COUNT(*) >= 4
+ORDER BY ENROLLED_STUDENTS DESC;
+```
+
+Q8 — INNER JOIN (3 tables)
+
+```sql
+SELECT a.Attempt_ID, s.Student_ID, s.Student_Name, x.Exam_Title, a.Marks_Obtained
+FROM EXAM_ATTEMPT a
+JOIN STUDENT s ON s.Student_ID = a.Student_ID
+JOIN EXAM x ON x.Exam_ID = a.Exam_ID
+ORDER BY x.Exam_ID, a.Marks_Obtained DESC;
+```
+
+Q9 — INNER JOIN + GROUP BY + HAVING + CASE
+
+```sql
+SELECT c.Course_Name,
+       COUNT(a.Attempt_ID) AS STUDENTS_APPEARED,
+       SUM(CASE WHEN r.Status = 'PASS' THEN 1 ELSE 0 END) AS PASSED,
+       ROUND(AVG(a.Marks_Obtained),2) AS AVG_MARKS
+FROM COURSE c
+JOIN EXAM x ON x.Course_ID = c.Course_ID
+JOIN EXAM_ATTEMPT a ON a.Exam_ID = x.Exam_ID
+JOIN RESULT r ON r.Attempt_ID = a.Attempt_ID
+GROUP BY c.Course_Name
+HAVING AVG(a.Marks_Obtained) >= 60
+ORDER BY AVG_MARKS DESC;
+```
+
+Q10 — LEFT JOIN
+
+```sql
+SELECT s.Student_ID, s.Student_Name, COUNT(e.Course_ID) AS COURSES_ENROLLED
+FROM STUDENT s
+LEFT JOIN ENROLLMENT e ON e.Student_ID = s.Student_ID
+GROUP BY s.Student_ID, s.Student_Name
+ORDER BY COURSES_ENROLLED DESC, s.Student_ID;
+```
+
+Q11 — Anti-Join using LEFT JOIN
+
+```sql
+SELECT s.Student_ID, s.Student_Name
+FROM STUDENT s
+LEFT JOIN EXAM_ATTEMPT a
+       ON a.Student_ID = s.Student_ID AND a.Exam_ID = 201
+WHERE a.Attempt_ID IS NULL
+ORDER BY s.Student_ID;
+```
+
+Q12 — Scalar Subquery
+
+```sql
+SELECT Attempt_ID, Student_ID, Exam_ID, Marks_Obtained
+FROM EXAM_ATTEMPT
+WHERE Marks_Obtained > (SELECT AVG(Marks_Obtained) FROM EXAM_ATTEMPT)
+ORDER BY Marks_Obtained DESC;
+```
+
+Q13 — IN Subquery
+
+```sql
+SELECT Exam_ID, Exam_Title, Exam_Date
+FROM EXAM
+WHERE Exam_ID IN (
+    SELECT Exam_ID
+    FROM EXAM_ATTEMPT
+    GROUP BY Exam_ID
+    HAVING AVG(Marks_Obtained) >= 75
+)
+ORDER BY Exam_ID;
+```
+
+Q14 — Correlated Subquery with NOT EXISTS
+
+```sql
+SELECT Student_ID, Student_Name, Department
+FROM STUDENT s
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM EXAM_ATTEMPT a
+    WHERE a.Student_ID = s.Student_ID
+);
+```
+
+Q15 — Derived Table
+
+```sql
+SELECT T.EXAM_ID, T.STUDENTS, T.AVG_MARKS
+FROM (
+    SELECT Exam_ID, COUNT(*) AS STUDENTS,
+           ROUND(AVG(Marks_Obtained),2) AS AVG_MARKS
+    FROM EXAM_ATTEMPT
+    GROUP BY Exam_ID
+) AS T
+WHERE T.AVG_MARKS > 60
+ORDER BY T.AVG_MARKS DESC;
+```
+
+Q16 — MAX() Subquery
+
+```sql
+SELECT s.Student_Name, a.Marks_Obtained
+FROM EXAM_ATTEMPT a
+JOIN STUDENT s ON s.Student_ID = a.Student_ID
+WHERE a.Exam_ID = 201
+  AND a.Marks_Obtained = (
+      SELECT MAX(Marks_Obtained)
+      FROM EXAM_ATTEMPT
+      WHERE Exam_ID = 201
+  );
+```
+
+VIEWS
+
+The project includes 3 views.
+
+1. V_STUDENT_REPORT
+
+```sql
+CREATE VIEW V_STUDENT_REPORT AS
+SELECT s.Student_ID, s.Student_Name, s.Department, c.Course_Name,
+       x.Exam_Title, x.Exam_Date, a.Marks_Obtained,
+       r.Percentage, r.Grade, r.Status
+FROM STUDENT s
+JOIN EXAM_ATTEMPT a ON a.Student_ID = s.Student_ID
+JOIN EXAM x ON x.Exam_ID = a.Exam_ID
+JOIN COURSE c ON c.Course_ID = x.Course_ID
+JOIN RESULT r ON r.Attempt_ID = a.Attempt_ID;
+```
+
+Purpose: Ready-made mark sheet for front-end use.
+
+2. V_COURSE_ANALYTICS
+
+```sql
+CREATE VIEW V_COURSE_ANALYTICS AS
+SELECT c.Course_ID, c.Course_Name, i.Instructor_Name,
+       COUNT(a.Attempt_ID) AS TOTAL_ATTEMPTS,
+       ROUND(AVG(a.Marks_Obtained),2) AS AVERAGE_MARKS,
+       SUM(CASE WHEN r.Status = 'PASS' THEN 1 ELSE 0 END) AS PASSED,
+       SUM(CASE WHEN r.Status = 'FAIL' THEN 1 ELSE 0 END) AS FAILED
+FROM COURSE c
+LEFT JOIN EXAM x ON x.Course_ID = c.Course_ID
+LEFT JOIN EXAM_ATTEMPT a ON a.Exam_ID = x.Exam_ID
+LEFT JOIN RESULT r ON r.Attempt_ID = a.Attempt_ID
+LEFT JOIN INSTRUCTOR i ON i.Instructor_ID = c.Instructor_ID
+GROUP BY c.Course_ID, c.Course_Name, i.Instructor_Name;
+```
+
+Purpose: Faculty dashboard and course-wise performance analysis.
+
+3. V_UPCOMING_EXAMS
+
+```sql
+CREATE VIEW V_UPCOMING_EXAMS AS
+SELECT x.Exam_ID, x.Exam_Title, c.Course_Name, i.Instructor_Name,
+       x.Exam_Date, x.Duration_Minutes, x.Total_Marks, x.Exam_Type
+FROM EXAM x
+JOIN COURSE c ON c.Course_ID = x.Course_ID
+JOIN INSTRUCTOR i ON i.Instructor_ID = c.Instructor_ID
+WHERE x.Exam_Date > CURDATE();
+```
+
+Purpose: Schedule board for upcoming exams.
+
+TRIGGERS
+
+The project uses 3 triggers.
+
+1. trg_auto_grade
+
+This trigger computes Grade and PASS/FAIL automatically whenever a result is inserted.
+
+```sql
+DELIMITER $$
+CREATE TRIGGER trg_auto_grade
+BEFORE INSERT ON RESULT
+FOR EACH ROW
+BEGIN
+    IF NEW.Percentage >= 80 THEN
+        SET NEW.Grade = 'A';
+    ELSEIF NEW.Percentage >= 70 THEN
+        SET NEW.Grade = 'B';
+    ELSEIF NEW.Percentage >= 60 THEN
+        SET NEW.Grade = 'C';
+    ELSEIF NEW.Percentage >= 50 THEN
+        SET NEW.Grade = 'D';
+    ELSE
+        SET NEW.Grade = 'F';
+    END IF;
+
+    IF NEW.Percentage >= 50 THEN
+        SET NEW.Status = 'PASS';
+    ELSE
+        SET NEW.Status = 'FAIL';
+    END IF;
+END$$
+DELIMITER ;
+```
+
+2. trg_add_answer_marks
+
+This trigger updates the total marks of an exam attempt whenever an answer record is inserted.
+
+```sql
+DELIMITER $$
+CREATE TRIGGER trg_add_answer_marks
+AFTER INSERT ON ANSWER
+FOR EACH ROW
+BEGIN
+    UPDATE EXAM_ATTEMPT
+       SET Marks_Obtained = Marks_Obtained + NEW.Marks_Scored
+     WHERE Attempt_ID = NEW.Attempt_ID;
+END$$
+DELIMITER ;
+```
+
+3. trg_check_attempt_marks
+
+This trigger prevents invalid marks from being entered or updated.
+
+```sql
+DELIMITER $$
+CREATE TRIGGER trg_check_attempt_marks
+BEFORE UPDATE ON EXAM_ATTEMPT
+FOR EACH ROW
+BEGIN
+    DECLARE exam_total INT;
+
+    SELECT Total_Marks INTO exam_total
+    FROM EXAM
+    WHERE Exam_ID = NEW.Exam_ID;
+
+    IF NEW.Marks_Obtained < 0 OR NEW.Marks_Obtained > exam_total THEN
+        SIGNAL SQLSTATE '45000'
+        SET MESSAGE_TEXT = 'INVALID MARKS: value must be between 0 and the exam Total_Marks';
+    END IF;
+END$$
+DELIMITER ;
+```
+
+SECURITY & INTEGRITY
+
+9.1 Referential Integrity
+
+Foreign key constraints ensure that no exam attempt, answer, or result references a non-existent student, exam, or question.
+
+9.2 Domain Integrity
+
+CHECK constraints enforce:
+- Year_Of_Study between 1 and 4
+- Credits between 1 and 6
+- Duration_Minutes between 10 and 240
+- Total_Marks between 1 and 200
+- Marks_Obtained >= 0
+- Percentage between 0 and 100
+- Grade in A/B/C/D/F
+- Option_Label in A/B/C/D
+
+9.3 Unique Constraints
+
+- UNIQUE Email in STUDENT and INSTRUCTOR
+- UNIQUE Phone in STUDENT
+- UNIQUE (Student_ID, Exam_ID) in EXAM_ATTEMPT
+- UNIQUE Attempt_ID in RESULT
+
+9.4 Trigger-based Validation
+
+The system uses triggers to:
+- automatically grade results
+- add answer marks to an attempt
+- reject illegal marks
+
+RESULTS & DISCUSSION
+
+10.1 Query Results Summary
+
+| Query / Feature | Result | Status |
+|---|---|---|
+| Table Creation | All tables created with constraints | ✅ Pass |
+| Data Insertion | All records inserted successfully | ✅ Pass |
+| Query Coverage | SELECT, JOIN, GROUP BY, HAVING, subqueries | ✅ Pass |
+| Views | 3 views created successfully | ✅ Pass |
+| Trigger 1 | Auto-grade computed | ✅ Pass |
+| Trigger 2 | Answer marks added automatically | ✅ Pass |
+| Trigger 3 | Invalid marks rejected | ✅ Pass |
+| Transaction Handling | COMMIT / ROLLBACK supported | ✅ Pass |
+
+CONCLUSION & FUTURE SCOPE
+
+11.1 Conclusion
+
+The Online Examination System successfully demonstrates the complete lifecycle of a real-world academic assessment platform using a relational database management system. The project covers major DBMS concepts including normalization, ER modeling, schema design, DDL and DML, joins, subqueries, aggregation, views, triggers, and transaction control.
+
+The normalized schema ensures minimal redundancy and strong data integrity through primary keys, foreign keys, CHECK constraints, and UNIQUE constraints. Triggers automate mark calculation and grading, reducing manual errors and improving consistency. Views simplify report generation for students, instructors, and administrators, while transactions ensure safe data handling.
+
+The project is scalable and can serve as a foundation for a web-based examination portal or a student management system with real-time results and faculty dashboards.
+
+11.2 Future Scope
+
+• Web-based front end using HTML/CSS/PHP or Python Flask
+• Student login and authentication
+• Faculty dashboard for question-paper upload
+• Real-time exam result generation
+• Automated email/SMS result notifications
+• Advanced analytics and charts
+• Proctoring integration and anti-cheating features
+
+REFERENCES
+
+1. Silberschatz, A., Korth, H. F., & Sudarshan, S. (2019). Database System Concepts (7th ed.). McGraw-Hill.
+2. Ramakrishnan, R., & Gehrke, J. (2003). Database Management Systems (3rd ed.). McGraw-Hill.
+3. MySQL 8.0 Reference Manual. Oracle Corporation.
+4. Date, C. J. (2003). An Introduction to Database Systems (8th ed.). Addison-Wesley.
+5. GeeksforGeeks. SQL Tutorial.
+6. W3Schools. SQL Tutorial.
+
+VIVA Q&A QUICK PREP
+
+1. What is a weak entity?
+- QUESTION is a weak entity because it depends on EXAM for identity. Its key is composite (Exam_ID, Question_No).
+
+2. What is the difference between PRIMARY KEY and UNIQUE?
+- Primary key cannot be NULL and identifies each row uniquely.
+- UNIQUE also enforces uniqueness but allows NULL values depending on DBMS behavior.
+
+3. why is the RESULT table one-to-one with EXAM_ATTEMPT?
+- Each attempt generates exactly one result. This is enforced by UNIQUE Attempt_ID in RESULT.
+
+4. What is a trigger?
+- A trigger is a stored procedure that automatically runs on INSERT/UPDATE/DELETE events.
+
+5. What is the use of ON DELETE CASCADE?
+- It deletes related child rows automatically when the parent row is deleted, preventing orphan records.
+
+6. What is a view?
+- A view is a virtual table created from a query. It hides complexity and provides ready-made reports.
+
+7. What is the difference between WHERE and HAVING?
+- WHERE filters rows before grouping.
+- HAVING filters grouped rows after aggregation.
+
+8. Why is normalization important?
+- It reduces redundancy, improves integrity, and avoids update anomalies.
+
+9. What is an M:N relationship?
+- It is implemented with an intermediate table. Example: STUDENT and COURSE via ENROLLMENT.
+
+10. How many attempts can a student have for one exam?
+- Exactly one, enforced by UNIQUE (Student_ID, Exam_ID) in EXAM_ATTEMPT.
+
+11. What is referential integrity?
+- It ensures foreign keys point to valid existing rows in the parent table.
+
+12. How is grade calculated?
+- Grade and status are auto-computed from percentage in the trigger trg_auto_grade.
+
+13. What does CHECK do?
+- It restricts values that can enter the database, such as valid marks and valid statuses.
+
+14. What is the role of a database in an online exam system?
+- It stores student, course, exam, answer, and result data securely and enables fast reporting.
+
+15. Why is MySQL used?
+- It is open source, commonly used in academic and industrial systems, and supports all required DBMS features.
+
+------------------------------------------------------------
+
+If you want, I can also do one of these next:
+1. Make this into a cleaner final-year project report format with page-wise headings
+2. Convert it into a simple Word-style report with proper spacing and sections
+3. Prepare the exact SQL files: 01_schema.sql, 02_data.sql, 03_queries.sql, 04_views.sql, 05_triggers.sql
+4. Give you a shorter version suitable for submission in college
+
+If you want, I can generate the actual SQL files for the Online Examination System next.
